@@ -34,19 +34,13 @@ static circlePosition cPos;
 static circlePosition cStick;
 static touchPosition kTouch;
 static touchPosition last_kTouch;
-static touchPosition first_kTouchDown;
-static touchPosition last_kTouchDown;
-static u64 holdTime = 0;
 
 static u32 sleepModeState = 0;
 
 static std::vector<PopupCallback> mPopupList;
 static std::string mTemplateInputString = "";
 
-static const char* UI_INPUT_VALUE[] = { "1", "2", "3", 
-										"4", "5", "6", 
-										"7", "8", "9", 
-										".", "0", ":" };
+static const char* UI_INPUT_VALUE[] = { "0", "1", "2", "3", "4", "5", "6", "7", "8", ".", "9", ":" };
 
 u32 PPUI::getKeyDown()
 {
@@ -97,18 +91,6 @@ void PPUI::UpdateInput()
 	irrstCstickRead(&cStick);
 	kTouch = touchPosition();
 	hidTouchRead(&kTouch);
-
-	if(kDown & KEY_TOUCH)
-	{
-		first_kTouchDown = kTouch;
-		last_kTouchDown = touchPosition();
-	}
-	if(last_kHeld & KEY_TOUCH && kUp & KEY_TOUCH)
-	{
-		last_kTouchDown = kTouch;
-		first_kTouchDown = touchPosition();
-		holdTime = 0;
-	}
 }
 
 bool PPUI::TouchDownOnArea(float x, float y, float w, float h)
@@ -133,21 +115,6 @@ bool PPUI::TouchUpOnArea(float x, float y, float w, float h)
 		}
 	}
 	return false;
-}
-
-bool PPUI::TouchDown()
-{
-	return kDown & KEY_TOUCH;
-}
-
-bool PPUI::TouchMove()
-{
-	return kHeld & KEY_TOUCH;
-}
-
-bool PPUI::TouchUp()
-{
-	return last_kHeld & KEY_TOUCH && kUp & KEY_TOUCH;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -249,7 +216,7 @@ int PPUI::DrawBottomScreenUI(PPSessionManager* sessionManager)
 	// Edit Button
 	if (FlatColorButton(260, 40, 50, 30, "Edit", rgb(192, 57, 43), rgb(231, 76, 60), rgb(255, 255, 255)))
 	{
-		if (sessionManager->GetManagerState() == 2) return 0;
+		if (sessionManager->GetManagerState() == 2) return;
 
 		mTemplateInputString = std::string(sessionManager->getIPAddress());
 		AddPopup([=]()
@@ -264,9 +231,9 @@ int PPUI::DrawBottomScreenUI(PPSessionManager* sessionManager)
 				{
 					// ok
 					sessionManager->setIPAddress(mTemplateInputString.c_str());
+					mTemplateInputString = "";
 					ConfigManager::Get()->_cfg_ip = strdup(mTemplateInputString.c_str());
 					ConfigManager::Get()->Save();
-					mTemplateInputString = "";
 				}
 			);
 		});
@@ -278,7 +245,7 @@ int PPUI::DrawBottomScreenUI(PPSessionManager* sessionManager)
 
 	if (FlatColorButton(260, 90, 50, 30, "Start", rgb(41, 128, 185), rgb(52, 152, 219), rgb(255, 255, 255)))
 	{
-		if (sessionManager->GetManagerState() == 2) return 0;
+		if (sessionManager->GetManagerState() == 2) return;
 		sessionManager->StartStreaming(sessionManager->getIPAddress());
 	}
 
@@ -290,7 +257,7 @@ int PPUI::DrawBottomScreenUI(PPSessionManager* sessionManager)
 
 
 	// Config mode
-	if (FlatColorButton(10, 90, 120, 30, "> Stream Config", rgb(39, 174, 96), rgb(46, 204, 113), rgb(255, 255, 255)))
+	if (FlatColorButton(10, 90, 100, 30, "Stream Config", rgb(39, 174, 96), rgb(46, 204, 113), rgb(255, 255, 255)))
 	{
 		AddPopup([=]()
 		{
@@ -302,10 +269,7 @@ int PPUI::DrawBottomScreenUI(PPSessionManager* sessionManager)
 				[=](void* a, void* b)
 			{
 				// ok
-				// save config
-				ConfigManager::Get()->Save();
-				// send new setting to server
-				sessionManager->UpdateStreamSetting();
+				
 			}
 			);
 		});
@@ -330,10 +294,14 @@ int PPUI::DrawStreamConfigUI(PPSessionManager* sessionManager, ResultCallback ca
 	LabelBox(0, 0, 320, 30, "Stream Config", rgb(26, 188, 156), rgb(255, 255, 255));
 
 
-	
-	ConfigManager::Get()->_cfg_video_quality = Slide(5, 40, 300, 30, ConfigManager::Get()->_cfg_video_quality, 10, 100, "Quality");
-	ConfigManager::Get()->_cfg_video_scale = Slide(5, 70, 300, 30, ConfigManager::Get()->_cfg_video_scale, 10, 100, "Scale");
-	ConfigManager::Get()->_cfg_skip_frame = Slide(5, 100, 300, 30, ConfigManager::Get()->_cfg_skip_frame, 0, 60, "Skip Frame");
+	LabelBoxLeft(5, 40, 50, 30, "Quality:", transparent, PPGraphics::Get()->PrimaryTextColor);
+	LabelBoxLeft(80, 40, 50, 30, "75", transparent, PPGraphics::Get()->PrimaryTextColor);
+
+	LabelBoxLeft(5, 70, 50, 30, "Scale:", transparent, PPGraphics::Get()->PrimaryTextColor);
+	LabelBoxLeft(80, 70, 50, 30, "100", transparent, PPGraphics::Get()->PrimaryTextColor);
+
+	LabelBoxLeft(5, 100, 50, 30, "Skip Frame:", transparent, PPGraphics::Get()->PrimaryTextColor);
+	LabelBoxLeft(80, 100, 50, 30, "1", transparent, PPGraphics::Get()->PrimaryTextColor);
 
 	// Cancel button
 	if (FlatColorButton(200, 200, 50, 30, "Cancel", rgb(192, 57, 43), rgb(231, 76, 60), rgb(255, 255, 255)))
@@ -359,7 +327,7 @@ int PPUI::DrawIdleBottomScreen(PPSessionManager* sessionManager)
 		sleepModeState = 1;
 	}
 	// label
-	LabelBox(0, 0, 320, 240, "Touch screen to wake up", rgb(26, 188, 156), rgb(255, 255, 255));
+	LabelBox(0, 0, 320, 240, "Touch screen to wake up", rgb(0, 0, 0), rgb(125, 125, 125));
 
 	DrawFPS(sessionManager);
 
@@ -374,64 +342,6 @@ void PPUI::DrawFPS(PPSessionManager* sessionManager)
 	char videoFpsBuffer[100];
 	snprintf(videoFpsBuffer, sizeof videoFpsBuffer, "FPS: %.1f/%.1f", fps, videoFps);
 	LabelBoxLeft(5, 220, 100, 20, videoFpsBuffer, ppColor{ 0, 0, 0, 0 }, rgb(150, 150, 150));
-}
-
-///////////////////////////////////////////////////////////////////////////
-// SLIDE
-///////////////////////////////////////////////////////////////////////////
-
-float PPUI::Slide(float x, float y, float w, float h, float val, float min, float max, const char* label)
-{
-	ppVector2 tSize = PPGraphics::Get()->GetTextSize(label, 0.5f, 0.5f);
-	float labelY = (h - tSize.y) / 2.0f;
-	float labelX = x + 5.f;
-	float slideX = w / 100.f * 35.f;
-	float marginY = 2;
-
-	if (val < min) val = min;
-	if (val > max) val = max;
-	// draw label
-	PPGraphics::Get()->DrawText(label, x + labelX, y + labelY, 0.5f, 0.5f, rgb(26, 26, 26), false);
-
-	// draw bg
-	float startX = x + slideX;
-	float startY = y + marginY;
-	w = w - slideX;
-	h = h - 2 * marginY;
-	PPGraphics::Get()->DrawRectangle(startX, startY, w, h, PPGraphics::Get()->PrimaryDarkColor);
-	
-	char valBuffer[50];
-	snprintf(valBuffer, sizeof valBuffer, "%.1f", val, val);
-	ppVector2 valSize = PPGraphics::Get()->GetTextSize(valBuffer, 0.5f, 0.5f);
-	float valueX = (w - valSize.x) / 2.0f;
-	float valueY = (h - valSize.y) / 2.0f;
-
-	// draw value
-	PPGraphics::Get()->DrawText(valBuffer, startX + valueX, startY + valueY, 0.5f, 0.5f, PPGraphics::Get()->AccentTextColor, false);
-	float newValue = val;
-	// draw plus and minus button
-	if(RepeatButton(startX + 1, startY + 1, 30 - 2, h - 2, "<", rgb(236, 240, 241), rgb(189, 195, 199), rgb(44, 62, 80)))
-	{
-		// minus
-		newValue -= 1;
-	}
-
-	if(RepeatButton(startX + w - 30, startY + 1, 30 - 1, h - 2, ">", rgb(236, 240, 241), rgb(189, 195, 199), rgb(44, 62, 80)))
-	{
-		// plus
-		newValue += 1;
-	}
-	if (newValue < min) newValue = min;
-	if (newValue > max) newValue = max;
-	return newValue;
-}
-
-///////////////////////////////////////////////////////////////////////////
-// CHECKBOX
-///////////////////////////////////////////////////////////////////////////
-bool PPUI::CheckBox(float x, float y, bool value, const char* label)
-{
-
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -468,36 +378,6 @@ bool PPUI::FlatColorButton(float x, float y, float w, float h, const char* label
 	return TouchUpOnArea(x, y, w, h);
 }
 
-bool PPUI::RepeatButton(float x, float y, float w, float h, const char* label, ppColor colNormal, ppColor colActive, ppColor txtCol)
-{
-	bool isTouchDown = TouchDownOnArea(x, y, w, h);
-	float tScale = 0.5f;
-	u64 difTime = 0;
-	if (isTouchDown)
-	{
-		PPGraphics::Get()->DrawRectangle(x, y, w, h, colActive);
-		tScale = 0.6f;
-		
-		if (holdTime == 0)
-		{
-			holdTime = osGetTime();
-		}else
-		{
-			difTime = osGetTime() - holdTime;
-		}
-	}
-	else
-	{
-		PPGraphics::Get()->DrawRectangle(x, y, w, h, colNormal);
-	}
-	ppVector2 tSize = PPGraphics::Get()->GetTextSize(label, tScale, tScale);
-	float startX = (w - tSize.x) / 2.0f;
-	float startY = (h - tSize.y) / 2.0f;
-	PPGraphics::Get()->DrawText(label, x + startX, y + startY, tScale, tScale, txtCol, false);
-
-	
-	return isTouchDown && difTime > 500 || TouchUpOnArea(x, y, w, h);
-}
 
 ///////////////////////////////////////////////////////////////////////////
 // TEXT
